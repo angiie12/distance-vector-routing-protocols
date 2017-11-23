@@ -17,7 +17,9 @@ def bellman_ford(graph, source):
     return d, p
 
 
-def load_topology(graph, filename):
+def load_topology(filename):
+    addresses, graph = {}, {}
+
     with open(filename, 'r') as topology:
         lines = topology.readlines()
         num_of_nodes = int(lines[0])
@@ -25,18 +27,25 @@ def load_topology(graph, filename):
         for node in range(num_of_nodes):
             graph.setdefault(node + 1, {})
 
-        for line in lines[2 + num_of_nodes:]:
-            tokens = map(int, line.split())
-            graph[tokens[0]][tokens[1]] = tokens[2]
+        for line_num, line in enumerate(lines[2:]):
+            if line_num < num_of_nodes:
+                tokens = line.split()
+                addresses[int(tokens[0])] = (tokens[1], int(tokens[2]))
+            else:
+                tokens = map(int, line.split())
+                graph[tokens[0]][tokens[1]] = tokens[2]
 
-    return graph
+    return addresses, graph
 
 
 def main():
-    graph = load_topology({}, 'topology-a.txt')
-    graph = load_topology(graph, 'topology-b.txt')
-    graph = load_topology(graph, 'topology-c.txt')
-    graph = load_topology(graph, 'topology-d.txt')
+    addresses, graph = load_topology('topology-a.txt')
+
+    for node in graph:
+        if graph[node]:
+            # Start server
+            print addresses[node]
+            break
 
     for source in graph:
         d, p = bellman_ford(graph, source)
