@@ -1,3 +1,8 @@
+import socket
+import sys
+import threading
+
+
 def bellman_ford(graph, source):
     d, p = {}, {}
 
@@ -38,10 +43,18 @@ def load_topology(filename):
     return addresses, graph
 
 
+def request_listener(server):
+    while True:
+        request, _ = server.recvfrom(1024)
+        sys.stdout.write('\n%s\n>>> ' % request)
+        sys.stdout.flush()
+
+
 def main():
     addresses = {}
     graph = {}
     running = False
+    server = None
     source_node = 0
 
     print 'Distance Vector Routing Protocols Emulator'
@@ -66,6 +79,7 @@ def main():
                     continue
 
                 if command == 'crash' or command == 'exit':
+                    server.close()
                     return
                 elif command == 'display':
                     distance_vector, packets = bellman_ford(graph, source_node)
@@ -88,6 +102,14 @@ def main():
                         if graph[node]:
                             source_node = node
                             break
+
+                    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    server.bind(addresses[source_node])
+
+                    thread = threading.Thread(target=request_listener,
+                                              args=(server,))
+                    thread.daemon = True
+                    thread.start()
 
                     print 'Server is running on %s, port %d' % \
                         addresses[source_node]
