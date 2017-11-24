@@ -1,3 +1,4 @@
+import json
 import socket
 import sys
 import threading
@@ -105,6 +106,13 @@ def main():
 
                     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     server.bind(addresses[source_node])
+
+                    for address_id in addresses:
+                        if address_id != source_node:
+                            message = 'update|' + json.dumps({
+                                source_node: graph[source_node]
+                            })
+                            server.sendto(message, addresses[address_id])
 
                     thread = threading.Thread(target=request_listener,
                                               args=(server,))
