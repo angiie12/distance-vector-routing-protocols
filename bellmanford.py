@@ -39,20 +39,65 @@ def load_topology(filename):
 
 
 def main():
-    addresses, graph = load_topology('topology-a.txt')
+    addresses = {}
+    graph = {}
+    running = False
+    source_node = 0
 
-    for node in graph:
-        if graph[node]:
-            # Start server
-            print addresses[node]
-            break
+    print 'Distance Vector Routing Protocols Emulator'
 
-    for source in graph:
-        d, p = bellman_ford(graph, source)
+    while True:
+        response = raw_input('>>> ').split()
 
-        print 'Source: %s' % source
-        print d
-        print p
+        if response:
+            command = response[0].lower()
+
+            if running:
+                if command == 'disable' and len(response) == 2:
+                    pass
+                elif command == 'disable':
+                    print 'disable <server-id>'
+                    continue
+
+                if command == 'update' and len(response) == 4:
+                    pass
+                elif command == 'update':
+                    print 'update <server-id-1> <server-id-2> <cost>'
+                    continue
+
+                if command == 'crash' or command == 'exit':
+                    return
+                elif command == 'display':
+                    distance_vector, packets = bellman_ford(graph, source_node)
+
+                    for node in distance_vector:
+                        if distance_vector[node] != 0:
+                            print '%d %d %.0f' % (node, packets[node],
+                                                  distance_vector[node])
+                elif command == 'packets':
+                    print 0
+                elif command == 'step':
+                    pass
+                else:
+                    print '"%s" is not a valid command.' % command
+            else:
+                if command == 'server' and len(response) == 5:
+                    addresses, graph = load_topology(response[2])
+
+                    for node in graph:
+                        if graph[node]:
+                            source_node = node
+                            break
+
+                    print 'Server is running on %s, port %d' % \
+                        addresses[source_node]
+                    running = True
+                elif command == 'exit':
+                    return
+                else:
+                    print 'Server is not running. Start it by typing:'
+                    print 'server -t <topology-file> -i ' \
+                          '<routing-update-interval>'
 
 
 if __name__ == '__main__':
