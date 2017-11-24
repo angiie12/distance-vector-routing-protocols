@@ -87,8 +87,10 @@ def main():
 
                     for node in distance_vector:
                         if distance_vector[node] != 0:
-                            print '%d %d %.0f' % (node, packets[node],
-                                                  distance_vector[node])
+                            next_hop = str(packets[node]) if packets[node] \
+                                else 'none'
+                            print '%4d %4s %4.0f' % (node, next_hop,
+                                                     distance_vector[node])
                 elif command == 'packets':
                     print 0
                 elif command == 'step':
