@@ -4,6 +4,9 @@ import threading
 import time
 
 
+packet_count = 0
+
+
 def bellman_ford(graph, source):
     d, p = {}, {}
 
@@ -45,6 +48,8 @@ def load_topology(filename):
 
 
 def request_listener(server, graph):
+    global packet_count
+
     while True:
         request, message = server.recvfrom(1024)[0].split('|')
 
@@ -64,6 +69,8 @@ def request_listener(server, graph):
                 for destination_id, cost in items:
                     graph[source_id][int(destination_id)] = cost
 
+        packet_count += 1
+
 
 def routinely_update_neighbors(server, graph, source, addresses, frequency):
     while True:
@@ -81,6 +88,8 @@ def update_neighbors(server, source, addresses, mapping):
 
 
 def main():
+    global packet_count
+
     addresses = {}
     graph = {}
     running = False
@@ -133,7 +142,8 @@ def main():
                             print '%4d %4s %4.0f' % (node, next_hop,
                                                      distance_vector[node])
                 elif command == 'packets':
-                    print 0
+                    print 'Packets received: %d' % packet_count
+                    packet_count = 0
                 elif command == 'step':
                     pass
                 else:
