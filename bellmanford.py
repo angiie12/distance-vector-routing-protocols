@@ -56,7 +56,7 @@ def request_listener(server, graph):
             items = loaded[str_source_id].items()
 
             if len(items) == 1:
-                destination_id, cost = int(items[0][0]), int(items[0][1])
+                destination_id, cost = int(items[0][0]), float(items[0][1])
 
                 graph[source_id][destination_id] = cost
                 graph[destination_id][source_id] = cost
@@ -105,7 +105,7 @@ def main():
                 if command == 'update' and len(response) == 4:
                     source_id = int(response[1])
                     destination_id = int(response[2])
-                    cost = int(response[3])
+                    cost = float(response[3])
 
                     # Update table locally
                     graph[source_id][destination_id] = cost
