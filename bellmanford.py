@@ -1,6 +1,5 @@
 import json
 import socket
-import sys
 import threading
 
 
@@ -44,11 +43,32 @@ def load_topology(filename):
     return addresses, graph
 
 
-def request_listener(server):
+def request_listener(server, graph):
     while True:
-        request, _ = server.recvfrom(1024)
-        sys.stdout.write('\n%s\n>>> ' % request)
-        sys.stdout.flush()
+        request, message = server.recvfrom(1024)[0].split('|')
+
+        if request == 'update':
+            loaded = json.loads(message)
+            str_source_id = loaded.keys()[0]
+            source_id = int(str_source_id)
+
+            items = loaded[str_source_id].items()
+
+            if len(items) == 1:
+                destination_id, cost = int(items[0][0]), int(items[0][1])
+
+                graph[source_id][destination_id] = cost
+                graph[destination_id][source_id] = cost
+            else:
+                for destination_id, cost in items:
+                    graph[source_id][int(destination_id)] = cost
+
+
+def update_neighbors(server, source, addresses, mapping):
+    for address_id in addresses:
+        if address_id != source:
+            message = 'update|' + json.dumps(mapping)
+            server.sendto(message, addresses[address_id])
 
 
 def main():
@@ -68,13 +88,25 @@ def main():
 
             if running:
                 if command == 'disable' and len(response) == 2:
-                    pass
+                    continue
                 elif command == 'disable':
                     print 'disable <server-id>'
                     continue
 
                 if command == 'update' and len(response) == 4:
-                    pass
+                    source_id = int(response[1])
+                    destination_id = int(response[2])
+                    cost = int(response[3])
+
+                    # Update table locally
+                    graph[source_id][destination_id] = cost
+                    graph[destination_id][source_id] = cost
+
+                    update_neighbors(server, source_node, addresses, {
+                        source_id: {destination_id: cost}
+                    })
+
+                    continue
                 elif command == 'update':
                     print 'update <server-id-1> <server-id-2> <cost>'
                     continue
@@ -109,15 +141,12 @@ def main():
                     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     server.bind(addresses[source_node])
 
-                    for address_id in addresses:
-                        if address_id != source_node:
-                            message = 'update|' + json.dumps({
-                                source_node: graph[source_node]
-                            })
-                            server.sendto(message, addresses[address_id])
+                    update_neighbors(server, source_node, addresses, {
+                        source_node: graph[source_node]
+                    })
 
                     thread = threading.Thread(target=request_listener,
-                                              args=(server,))
+                                              args=(server, graph,))
                     thread.daemon = True
                     thread.start()
 
