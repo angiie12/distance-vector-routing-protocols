@@ -1,6 +1,7 @@
 import json
 import socket
 import threading
+import time
 
 
 def bellman_ford(graph, source):
@@ -62,6 +63,14 @@ def request_listener(server, graph):
             else:
                 for destination_id, cost in items:
                     graph[source_id][int(destination_id)] = cost
+
+
+def routinely_update_neighbors(server, graph, source, addresses, frequency):
+    while True:
+        update_neighbors(server, source, addresses, {
+            source: graph[source]
+        })
+        time.sleep(frequency)
 
 
 def update_neighbors(server, source, addresses, mapping):
@@ -141,14 +150,17 @@ def main():
                     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     server.bind(addresses[source_node])
 
-                    update_neighbors(server, source_node, addresses, {
-                        source_node: graph[source_node]
-                    })
+                    routinely_update = \
+                        threading.Thread(target=routinely_update_neighbors,
+                                         args=(server, graph, source_node,
+                                               addresses, int(response[4])))
+                    routinely_update.daemon = True
+                    routinely_update.start()
 
-                    thread = threading.Thread(target=request_listener,
-                                              args=(server, graph,))
-                    thread.daemon = True
-                    thread.start()
+                    listener = threading.Thread(target=request_listener,
+                                                args=(server, graph))
+                    listener.daemon = True
+                    listener.start()
 
                     print 'Server is running on %s, port %d' % \
                         addresses[source_node]
