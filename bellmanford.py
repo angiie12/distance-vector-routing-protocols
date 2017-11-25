@@ -1,10 +1,12 @@
 import json
 import socket
+import sys
 import threading
 import time
 
 
 packet_count = 0
+shutdown = False
 
 
 def bellman_ford(graph, source):
@@ -24,6 +26,14 @@ def bellman_ford(graph, source):
                     p[v] = u
 
     return d, p
+
+
+def crash(server, graph, source_node, addresses):
+    for destination_node in graph:
+        if destination_node != source_node:
+            server.sendto('crash|%d' % source_node, addresses[destination_node])
+
+    server.close()
 
 
 def load_topology(filename):
@@ -48,7 +58,7 @@ def load_topology(filename):
 
 
 def request_listener(server, graph):
-    global packet_count
+    global packet_count, shutdown
 
     while True:
         request, message = server.recvfrom(1024)[0].split('|')
@@ -61,6 +71,11 @@ def request_listener(server, graph):
                     del graph[node][target_node]
 
             del graph[target_node]
+        elif request == 'shutdown':
+            sys.stdout.write('\nA neighboring server closed this terminal.\n'
+                             'Hit enter to close down.')
+            sys.stdout.flush()
+            shutdown = True
         elif request == 'update':
             loaded = json.loads(message)
             str_source_id = loaded.keys()[0]
@@ -99,7 +114,7 @@ def update_neighbors(server, source, addresses, mapping):
 
 
 def main():
-    global packet_count
+    global packet_count, shutdown
 
     addresses = {}
     graph = {}
@@ -109,7 +124,7 @@ def main():
 
     print 'Distance Vector Routing Protocols Emulator'
 
-    while True:
+    while not shutdown:
         response = raw_input('>>> ').split()
 
         if response:
@@ -117,6 +132,11 @@ def main():
 
             if running:
                 if command == 'disable' and len(response) == 2:
+                    node = int(response[1])
+
+                    if node in graph[source_node]:
+                        server.sendto('shutdown|', addresses[node])
+
                     continue
                 elif command == 'disable':
                     print 'disable <server-id>'
@@ -141,11 +161,7 @@ def main():
                     continue
 
                 if command == 'crash' or command == 'exit':
-                    for destination_node in graph:
-                        if destination_node != source_node:
-                            server.sendto('crash|%d' % source_node,
-                                          addresses[destination_node])
-                    server.close()
+                    crash(server, graph, source_node, addresses)
                     return
                 elif command == 'display':
                     distance_vector, packets = bellman_ford(graph, source_node)
@@ -196,6 +212,8 @@ def main():
                     print 'Server is not running. Start it by typing:'
                     print 'server -t <topology-file> -i ' \
                           '<routing-update-interval>'
+
+    crash(server, graph, source_node, addresses)
 
 
 if __name__ == '__main__':
