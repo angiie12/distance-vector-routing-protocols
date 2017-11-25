@@ -53,7 +53,15 @@ def request_listener(server, graph):
     while True:
         request, message = server.recvfrom(1024)[0].split('|')
 
-        if request == 'update':
+        if request == 'crash':
+            target_node = int(message)
+
+            for node in graph:
+                if target_node in graph[node]:
+                    del graph[node][target_node]
+
+            del graph[target_node]
+        elif request == 'update':
             loaded = json.loads(message)
             str_source_id = loaded.keys()[0]
             source_id = int(str_source_id)
@@ -63,11 +71,11 @@ def request_listener(server, graph):
             if len(items) == 1:
                 destination_id, cost = int(items[0][0]), float(items[0][1])
 
-                graph[source_id][destination_id] = cost
-                graph[destination_id][source_id] = cost
+                graph.setdefault(source_id, {})[destination_id] = cost
+                graph.setdefault(destination_id, {})[source_id] = cost
             else:
                 for destination_id, cost in items:
-                    graph[source_id][int(destination_id)] = cost
+                    graph.setdefault(source_id, {})[int(destination_id)] = cost
 
         packet_count += 1
 
@@ -81,10 +89,13 @@ def routinely_update_neighbors(server, graph, source, addresses, frequency):
 
 
 def update_neighbors(server, source, addresses, mapping):
-    for address_id in addresses:
-        if address_id != source:
-            message = 'update|' + json.dumps(mapping)
-            server.sendto(message, addresses[address_id])
+    try:
+        for address_id in addresses:
+            if address_id != source:
+                message = 'update|' + json.dumps(mapping)
+                server.sendto(message, addresses[address_id])
+    except socket.error:
+        pass
 
 
 def main():
@@ -117,8 +128,8 @@ def main():
                     cost = float(response[3])
 
                     # Update table locally
-                    graph[source_id][destination_id] = cost
-                    graph[destination_id][source_id] = cost
+                    graph.setdefault(source_id, {})[destination_id] = cost
+                    graph.setdefault(destination_id, {})[source_id] = cost
 
                     update_neighbors(server, source_node, addresses, {
                         source_id: {destination_id: cost}
@@ -130,6 +141,10 @@ def main():
                     continue
 
                 if command == 'crash' or command == 'exit':
+                    for destination_node in graph:
+                        if destination_node != source_node:
+                            server.sendto('crash|%d' % source_node,
+                                          addresses[destination_node])
                     server.close()
                     return
                 elif command == 'display':
