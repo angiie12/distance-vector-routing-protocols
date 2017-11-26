@@ -18,6 +18,7 @@ def bellman_ford(graph, source):
 
     d[source] = 0
 
+    # search for the shortest path
     for _ in range(len(graph) - 1):
         for u in graph:
             for v in graph[u]:
@@ -28,6 +29,7 @@ def bellman_ford(graph, source):
     return d, p
 
 
+# close all linked connections
 def crash(server, graph, source_node, addresses):
     for destination_node in graph:
         if destination_node != source_node:
@@ -39,13 +41,16 @@ def crash(server, graph, source_node, addresses):
 def load_topology(filename):
     addresses, graph = {}, {}
 
+    # read topology file
     with open(filename, 'r') as topology:
         lines = topology.readlines()
         num_of_nodes = int(lines[0])
 
+        # build initial table
         for node in range(num_of_nodes):
             graph.setdefault(node + 1, {})
 
+        # use hashmap for the routing table
         for line_num, line in enumerate(lines[2:]):
             if line_num < num_of_nodes:
                 tokens = line.split()
@@ -63,6 +68,7 @@ def request_listener(server, graph):
     while True:
         request, message = server.recvfrom(1024)[0].split('|')
 
+        # close connections and update graph
         if request == 'crash':
             target_node = int(message)
 
@@ -76,6 +82,7 @@ def request_listener(server, graph):
                              'Hit enter to close down.')
             sys.stdout.flush()
             shutdown = True
+        # update routing information
         elif request == 'update':
             loaded = json.loads(message)
             str_source_id = loaded.keys()[0]
@@ -95,6 +102,7 @@ def request_listener(server, graph):
         packet_count += 1
 
 
+# routing updates based on a time interval
 def routinely_update_neighbors(server, graph, source, addresses, frequency):
     while True:
         update_neighbors(server, source, addresses, {
@@ -103,6 +111,7 @@ def routinely_update_neighbors(server, graph, source, addresses, frequency):
         time.sleep(frequency)
 
 
+# exchange updates with neighbors
 def update_neighbors(server, source, addresses, mapping):
     try:
         for address_id in addresses:
@@ -131,6 +140,7 @@ def main():
             command = response[0].lower()
 
             if running:
+                # close connection with the given server ID
                 if command == 'disable' and len(response) == 2:
                     node = int(response[1])
 
@@ -142,6 +152,7 @@ def main():
                     print 'disable <server-id>'
                     continue
 
+                # update the links with the given cost
                 if command == 'update' and len(response) == 4:
                     source_id = int(response[1])
                     destination_id = int(response[2])
@@ -163,6 +174,7 @@ def main():
                 if command == 'crash' or command == 'exit':
                     crash(server, graph, source_node, addresses)
                     return
+                # display and sort the current table
                 elif command == 'display':
                     distance_vector, packets = bellman_ford(graph, source_node)
 
@@ -172,6 +184,7 @@ def main():
                                 else 'none'
                             print '%4d %4s %4.0f' % (node, next_hop,
                                                      distance_vector[node])
+                # display the number of packets the server has recieved
                 elif command == 'packets':
                     print 'Packets received: %d' % packet_count
                     packet_count = 0
@@ -180,6 +193,7 @@ def main():
                 else:
                     print '"%s" is not a valid command.' % command
             else:
+                # load the given topology with the given time inverval
                 if command == 'server' and len(response) == 5:
                     addresses, graph = load_topology(response[2])
 
@@ -206,6 +220,7 @@ def main():
                     print 'Server is running on %s, port %d' % \
                         addresses[source_node]
                     running = True
+                # stop the server
                 elif command == 'exit':
                     return
                 else:
