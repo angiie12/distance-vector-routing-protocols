@@ -82,7 +82,7 @@ def request_listener(server, graph):
                              'Hit enter to close down.')
             sys.stdout.flush()
             shutdown = True
-        # update routing information
+        # update routing information using hashmap
         elif request == 'update':
             loaded = json.loads(message)
             str_source_id = loaded.keys()[0]
@@ -176,20 +176,22 @@ def main():
                     return
                 # display and sort the current table
                 elif command == 'display':
-                    distance_vector, packets = bellman_ford(graph, source_node)
+                    distance_vector, hops = bellman_ford(graph, source_node)
 
                     for node in distance_vector:
                         if distance_vector[node] != 0:
-                            next_hop = str(packets[node]) if packets[node] \
-                                else 'none'
+                            next_hop = str(hops[node]) if hops[node] else 'none'
                             print '%4d %4s %4.0f' % (node, next_hop,
                                                      distance_vector[node])
                 # display the number of packets the server has recieved
                 elif command == 'packets':
                     print 'Packets received: %d' % packet_count
                     packet_count = 0
+                # update neighbors right away
                 elif command == 'step':
-                    pass
+                    update_neighbors(server, source_node, addresses, {
+                        source_node: graph[source_node]
+                    })
                 else:
                     print '"%s" is not a valid command.' % command
             else:
